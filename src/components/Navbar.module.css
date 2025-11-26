@@ -1,0 +1,87 @@
+.navbar {
+  background-color: #f8f9fa;
+  color: #333;
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.navContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo a {
+  color: #333;
+  text-decoration: none;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+}
+
+.navLinks a {
+  color: #333;
+  text-decoration: none;
+  margin-left: 1rem;
+}
+
+.registerButton {
+  background-color: #007bff;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+}
+
+.userMenu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.userAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.companyName {
+  margin-left: 10px;
+}
+
+.userMenu:hover .dropdown {
+  display: block;
+}
+
+.dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 5px;
+  padding: 0.5rem;
+  z-index: 1;
+}
+
+.dropdown button {
+  display: block;
+  background-color: transparent;
+  border: none;
+  color: #333;
+  padding: 0.5rem 1rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdown button:hover {
+  background-color: #f1f3f5;
+}

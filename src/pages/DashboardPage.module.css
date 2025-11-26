@@ -1,0 +1,45 @@
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.statsContainer {
+  display: flex;
+  justify-content: space-around;
+  padding: 20px;
+  gap: 20px;
+}
+
+.statBox {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  flex-grow: 1;
+  text-align: center;
+}
+
+.statBox h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.statBox p {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #6e8efb;
+}
+
+.mapContainer {
+  flex-grow: 1;
+  padding: 20px;
+}
+
+.map {
+  height: 100%;
+  width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
