@@ -44,6 +44,10 @@ export const getDevicesByCompany = async (companyId) => {
   return devices;
 };
 
+export const getDeviceById = (deviceId) => {
+  return doc(db, 'devices', deviceId);
+};
+
 export const createCompany = async (companyId, data) => {
   const companyRef = doc(db, 'companies', companyId);
   await setDoc(companyRef, data);

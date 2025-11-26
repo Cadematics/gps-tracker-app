@@ -117,7 +117,6 @@ const DevicesPage = () => {
       {feedback.message && renderFeedback()}
 
       <div className={styles.deviceListCard}>
-        <h2>Device Fleet</h2>
         {loading && <p>Loading devices...</p>}
         {error && <p className={styles.errorText}>Error loading devices: {error.message}</p>}
         {!loading && !error && (
