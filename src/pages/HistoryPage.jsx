@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './HistoryPage.module.css';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { getAlertsQueryByCompany, getDevicesQueryByCompany } from '../firestore';
 

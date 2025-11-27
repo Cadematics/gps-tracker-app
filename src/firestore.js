@@ -3,7 +3,7 @@ import {
   doc,
   getDoc,
   setDoc,
-  addDoc,
+  updateDoc,
   query,
   where,
   getDocs,
@@ -29,12 +29,6 @@ export const getCompanyByOwner = async (userId) => {
   }
 };
 
-export const getUserById = async (userId) => {
-  const userRef = doc(db, 'users', userId);
-  const userSnap = await getDoc(userRef);
-  return userSnap.exists() ? userSnap.data() : null;
-};
-
 export const getDevicesByCompany = async (companyId) => {
   const querySnapshot = await getDocs(getDevicesQueryByCompany(companyId));
   const devices = [];
@@ -53,10 +47,10 @@ export const createCompany = async (companyId, data) => {
   await setDoc(companyRef, data);
 };
 
-export const createUser = async (userId, data) => {
-  const userRef = doc(db, 'users', userId);
-  await setDoc(userRef, data);
-};
+export const updateCompany = async (companyId, data) => {
+    const companyRef = doc(db, 'companies', companyId);
+    await updateDoc(companyRef, data);
+}
 
 export const createDevice = async (deviceId, data) => {
   const deviceRef = doc(db, 'devices', deviceId);

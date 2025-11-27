@@ -3,7 +3,7 @@ import styles from './RegisterPage.module.css';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
-import { createCompany, createUser } from '../firestore';
+import { createCompany } from '../firestore';
 import { serverTimestamp } from 'firebase/firestore';
 
 const RegisterPage = () => {
@@ -25,24 +25,6 @@ const RegisterPage = () => {
         ownerUserId: user.uid,
         adminFullName: fullName,
         email: email,
-        createdAt: serverTimestamp(),
-        country: null,
-        timeZone: null,
-        companyPhone: null,
-        companyAddress: null,
-        companyLogoUrl: null,
-        industry: null,
-        deviceCount: 0,
-        plan: 'free',
-        billingStatus: 'active',
-      });
-
-      await createUser(user.uid, {
-        userId: user.uid,
-        fullName: fullName,
-        email: email,
-        role: 'owner',
-        companyId: user.uid,
         createdAt: serverTimestamp(),
       });
 

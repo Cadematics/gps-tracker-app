@@ -1,10 +1,10 @@
 import React from 'react';
 import styles from './Navbar.module.css';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
-  const { user, signOut, companyName } = useAuth();
+  const { user, signOut, company } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -29,7 +29,7 @@ const Navbar = () => {
                 alt="Company Logo" 
                 className={styles.userAvatar}
               />
-              <span className={styles.companyName}>{companyName}</span>
+              <span className={styles.companyName}>{company?.name}</span>
               <div className={styles.dropdown}>
                 <button onClick={handleProfileNavigation}>Profile</button>
                 <button onClick={handleLogout}>Logout</button>

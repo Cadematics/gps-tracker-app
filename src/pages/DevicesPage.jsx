@@ -1,161 +1,146 @@
-import React, { useState } from 'react';
-import styles from './DevicesPage.module.css';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useCollection } from 'react-firebase-hooks/firestore';
-import { useAuth } from '../hooks/useAuth';
-import { createDevice, getDevicesQueryByCompany, deviceExists } from '../firestore';
+import { useNavigate } from 'react-router-dom';
+import { FaPlus, FaSpinner, FaMapMarkedAlt, FaCarBattery, FaStreetView, FaClock } from 'react-icons/fa';
 import { serverTimestamp } from 'firebase/firestore';
-import { FaPlus, FaSpinner, FaExclamationCircle, FaCheckCircle, FaServer } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+
+import { useAuth } from '../context/AuthContext';
+import { getDevicesQueryByCompany, createDevice } from '../firestore';
+import styles from './DevicesPage.module.css';
+
+// --- Helper Function for Timestamps ---
+const formatTimestamp = (timestamp) => {
+  if (!timestamp || !timestamp.toDate) {
+    return 'N/A';
+  }
+  return timestamp.toDate().toLocaleString();
+};
 
 const DevicesPage = () => {
-  const { companyId } = useAuth();
+  const { user, companyId } = useAuth();
+  const navigate = useNavigate();
+  
   const [deviceId, setDeviceId] = useState('');
   const [deviceName, setDeviceName] = useState('');
-  const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [isAdding, setIsAdding] = useState(false);
+  const [feedback, setFeedback] = useState({ message: '', type: '' });
 
-  const devicesQuery = companyId ? getDevicesQueryByCompany(companyId) : null;
-  const [devices, loading, error] = useCollection(devicesQuery);
+  const query = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
+  const [devicesSnapshot, loading, error] = useCollection(query);
 
   const handleInputChange = (e, setter) => {
     setter(e.target.value);
-    if (feedback.message) {
-      setFeedback({ type: '', message: '' });
-    }
   };
 
   const addDevice = async (e) => {
     e.preventDefault();
-    if (deviceId.trim() === '' || deviceName.trim() === '' || !companyId) {
-      setFeedback({
-        type: 'error',
-        message: 'Please enter both a unique device ID and a name.',
-      });
+    if (!deviceId || !deviceName || !companyId) {
+      setFeedback({ message: 'Device ID and Name are required.', type: 'error' });
       return;
     }
 
     setIsAdding(true);
+    setFeedback({ message: '', type: '' });
 
     try {
-      const exists = await deviceExists(deviceId);
-      if (exists) {
-        setFeedback({
-          type: 'error',
-          message: 'A device with this ID already exists. Please use a different ID.',
-        });
-        setIsAdding(false);
-        return;
-      }
-
-      await createDevice(deviceId, {
-        deviceId: deviceId,
-        companyId: companyId,
+      const deviceData = {
         name: deviceName,
-        isActive: true,
-        lastPosition: { lat: null, lng: null, speed: null, ignition: null, battery: null, timestamp: null },
+        companyId: companyId,
+        isActive: false,
+        lastPosition: {
+          lat: null,
+          lng: null,
+          speed: 0,
+          ignition: false,
+          battery: null,
+          timestamp: null,
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
-      
+      };
+      await createDevice(deviceId, deviceData);
+      setFeedback({ message: 'Device added successfully!', type: 'success' });
       setDeviceId('');
       setDeviceName('');
-      setFeedback({ type: 'success', message: 'Device added successfully!' });
     } catch (error) {
-      console.error('Error adding device: ', error);
-      setFeedback({
-        type: 'error',
-        message: 'Error adding device. Please try again.',
-      });
-    } finally {
-      setIsAdding(false);
+      console.error("Error adding device:", error);
+      setFeedback({ message: `Error: ${error.message}`, type: 'error' });
     }
+    setIsAdding(false);
   };
 
-  const renderFeedback = () => {
-    if (!feedback.message) return null;
-    const Icon = feedback.type === 'success' ? FaCheckCircle : FaExclamationCircle;
+  const renderFeedback = useCallback(() => {
+    return <p className={`${styles.feedback} ${styles[feedback.type]}`}>{feedback.message}</p>;
+  }, [feedback]);
+
+  const renderDeviceList = () => {
+    if (error) {
+      return <p className={styles.errorText}>Error loading devices: {error.message}</p>;
+    }
+
+    if (!devicesSnapshot || devicesSnapshot.empty) {
+      return (
+        <div className={styles.emptyState}>
+          <p>No devices found. Add one above to get started.</p>
+        </div>
+      );
+    }
+
     return (
-      <div className={`${styles.feedback} ${styles[feedback.type]}`}>
-        <Icon />
-        <span>{feedback.message}</span>
+      <div className={styles.deviceList}>
+        {devicesSnapshot.docs.map((doc) => {
+          const device = doc.data();
+          const { lat, lng } = device.lastPosition || {};
+          return (
+            <div key={doc.id} className={styles.deviceItem}>
+                <strong className={styles.deviceName}>{device.name}</strong>
+                <span className={`${styles.status} ${device.isActive ? styles.online : styles.offline}`}>
+                  {device.isActive ? 'Online' : 'Offline'}
+                </span>
+                <span className={styles.deviceDetailItem}><FaClock /> {formatTimestamp(device.updatedAt)}</span>
+                <span className={styles.deviceDetailItem}><FaStreetView /> {lat && lng ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : 'N/A'}</span>
+                <span className={styles.deviceDetailItem}><FaCarBattery /> {device.lastPosition?.battery ? `${device.lastPosition.battery}%` : 'N/A'}</span>
+                <div className={styles.actions}>
+                  <button onClick={() => navigate(`/map/${doc.id}`)} className={styles.viewLiveBtn}>
+                    <FaMapMarkedAlt /> View Live
+                  </button>
+                </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
 
-  const renderEmptyState = () => (
-    <div className={styles.emptyState}>
-      <FaServer size={50} />
-      <h2>No Devices Found</h2>
-      <p>Add your first device using the form above to start monitoring.</p>
-    </div>
-  );
-
   return (
-    <div className={styles.devicesContainer}>
-      <h1>Devices</h1>
+    <div className={styles.devicesPageContainer}>
+      <div className={styles.header}>
+        <h1>Device Dashboard</h1>
+      </div>
 
-      <form onSubmit={addDevice} className={styles.addDeviceForm}>
-        <input
-          type="text"
-          value={deviceId}
-          onChange={(e) => handleInputChange(e, setDeviceId)}
-          placeholder="Enter device ID"
-          aria-label="Device ID"
-        />
-        <input
-          type="text"
-          value={deviceName}
-          onChange={(e) => handleInputChange(e, setDeviceName)}
-          placeholder="Enter device name"
-          aria-label="Device Name"
-        />
-        <button type="submit" disabled={isAdding}>
-          {isAdding ? <><FaSpinner className={styles.spinner} /> Adding...</> : 'Add Device'}
-        </button>
-      </form>
-
-      {feedback.message && renderFeedback()}
+      <div className={styles.addDeviceCard}>
+        <form onSubmit={addDevice} className={styles.addDeviceForm}>
+          <input
+            type="text"
+            value={deviceId}
+            onChange={(e) => handleInputChange(e, setDeviceId)}
+            placeholder="New Device ID..."
+          />
+          <input
+            type="text"
+            value={deviceName}
+            onChange={(e) => handleInputChange(e, setDeviceName)}
+            placeholder="New Device Name..."
+          />
+          <button type="submit" disabled={isAdding}>
+            {isAdding ? <FaSpinner className={styles.spinner} /> : <FaPlus />}
+          </button>
+        </form>
+        {feedback.message && renderFeedback()}
+      </div>
 
       <div className={styles.deviceListCard}>
-        {loading && <p>Loading devices...</p>}
-        {error && <p className={styles.errorText}>Error loading devices: {error.message}</p>}
-        {!loading && !error && (
-          devices?.docs.length === 0 ? renderEmptyState() : (
-            <table className={styles.devicesTable}>
-              <thead>
-                <tr>
-                  <th>Device ID</th>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Battery</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {devices?.docs.map((doc) => {
-                  const device = doc.data();
-                  return (
-                    <tr key={doc.id}>
-                      <td>{device.deviceId}</td>
-                      <td>{device.name}</td>
-                      <td>
-                        <span className={`${styles.status} ${device.isActive ? styles.online : styles.offline}`}>
-                          {device.isActive ? 'Online' : 'Offline'}
-                        </span>
-                      </td>
-                      <td>{device.lastPosition?.battery ? `${device.lastPosition.battery}%` : 'N/A'}</td>
-                      <td>
-                        <Link to={`/dashboard/live/${doc.id}`} className={styles.actionLink}>
-                          View Live
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )
-        )}
+        {loading ? <p>Loading devices...</p> : renderDeviceList()}
       </div>
     </div>
   );

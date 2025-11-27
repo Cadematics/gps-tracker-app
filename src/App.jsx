@@ -14,37 +14,39 @@ import HistoryPage from './pages/HistoryPage';
 import GeofencingPage from './pages/GeofencingPage';
 import ReportsPage from './pages/ReportsPage';
 import ProfilePage from './pages/ProfilePage';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
   return (
     <Router>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Navbar />
-        <main style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route 
-              path="/" 
-              element={<PrivateRoute><Navigate to="/dashboard" /></PrivateRoute>}
-            />
-            <Route
-              path="/dashboard"
-              element={<PrivateRoute><DashboardLayout /></PrivateRoute>}
-            >
-              <Route index element={<DashboardPage />} />
-              <Route path="devices" element={<DevicesPage />} />
-              <Route path="live" element={<LiveMapPage />} />
-              <Route path="live/:deviceId" element={<LiveMapPage />} />
-              <Route path="history" element={<HistoryPage />} />
-              <Route path="geofencing" element={<GeofencingPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="profile" element={<ProfilePage />} />
-            </Route>
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <AuthProvider>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Navbar />
+          <main style={{ flex: 1 }}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route 
+                path="/" 
+                element={<PrivateRoute><Navigate to="/dashboard" /></PrivateRoute>}
+              />
+              <Route
+                path="/dashboard"
+                element={<PrivateRoute><DashboardLayout /></PrivateRoute>}
+              >
+                <Route index element={<DashboardPage />} />
+                <Route path="devices" element={<DevicesPage />} />
+                <Route path="live" element={<LiveMapPage />} />
+                <Route path="history" element={<HistoryPage />} />
+                <Route path="geofencing" element={<GeofencingPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+              </Route>
+            </Routes>
+          </main>
+          <Footer />
+        </div>
+      </AuthProvider>
     </Router>
   );
 }

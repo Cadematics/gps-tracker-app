@@ -1,73 +1,89 @@
-import React, { useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import styles from './LiveMapPage.module.css';
-import { useCollection, useDocument } from 'react-firebase-hooks/firestore';
-import { useAuth } from '../hooks/useAuth';
-import { getDevicesQueryByCompany, getDeviceById } from '../firestore';
-import { useParams } from 'react-router-dom';
+
+// --- Mock Data ---
+const mockDevices = [
+  {
+    id: "DEV001",
+    name: "Truck 1",
+    lat: 37.7749,
+    lng: -122.4194,
+    speed: 45,
+    status: "moving",
+    lastSeen: "2025-11-22T14:00:00Z",
+  },
+  {
+    id: "DEV002",
+    name: "Van A",
+    lat: 37.7840,
+    lng: -122.4090,
+    speed: 0,
+    status: "idle",
+    lastSeen: "2025-11-22T13:58:00Z",
+  },
+  {
+    id: "DEV003",
+    name: "Bike 3",
+    lat: 37.7640,
+    lng: -122.4290,
+    speed: 22,
+    status: "moving",
+    lastSeen: "2025-11-22T13:59:00Z",
+  },
+];
+
+// --- Auto-fit Component ---
+const FitBounds = ({ devices }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (!devices || devices.length === 0) return;
+        const bounds = L.latLngBounds(devices.map(device => [device.lat, device.lng]));
+        if (bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+    }, [devices, map]);
+    return null;
+};
 
 const LiveMapPage = () => {
-  const { companyId } = useAuth();
-  const { deviceId } = useParams();
+  const defaultPosition = [37.7749, -122.4194]; // San Francisco
 
-  // Memoize the document reference to prevent re-renders
-  const deviceRef = useMemo(() => (deviceId ? getDeviceById(deviceId) : null), [deviceId]);
-  const [deviceSnapshot, deviceLoading, deviceError] = useDocument(deviceRef);
-  
-  // Memoize the query to prevent re-renders
-  const devicesQuery = useMemo(() => (companyId && !deviceId ? getDevicesQueryByCompany(companyId) : null), [companyId, deviceId]);
-  const [devicesSnapshot, devicesLoading, devicesError] = useCollection(devicesQuery);
-
-  const loading = deviceId ? deviceLoading : devicesLoading;
-  const error = deviceId ? deviceError : devicesError;
-  
-  let onlineDevices = [];
-
-  if (deviceId && deviceSnapshot?.exists()) {
-    const deviceData = deviceSnapshot.data();
-    if (deviceData.isActive && deviceData.lastPosition?.lat && deviceData.lastPosition?.lng) {
-      // Create an array with a single item that matches the structure of a collection doc
-      onlineDevices.push({ id: deviceSnapshot.id, data: () => deviceData });
-    }
-  } else if (!deviceId && devicesSnapshot) {
-    onlineDevices = devicesSnapshot.docs.filter(doc => doc.data().isActive && doc.data().lastPosition?.lat && doc.data().lastPosition?.lng);
-  }
-
-  // Determine the map center and zoom
-  const mapCenter = onlineDevices.length > 0 
-    ? [onlineDevices[0].data().lastPosition.lat, onlineDevices[0].data().lastPosition.lng] 
-    : [51.505, -0.09]; // Default center
-    
-  const mapZoom = onlineDevices.length > 0 ? 15 : 13;
+  const handleViewDevice = (deviceId) => {
+    console.log(`Open device ${deviceId}`);
+  };
 
   return (
-    <div className={styles.liveMapContainer}>
-      <h1>Live Device Map</h1>
-      {loading && <p>Loading map...</p>}
-      {error && <p className={styles.errorText}>Error loading map: {error.message}</p>}
-      {!loading && (
-        <MapContainer center={mapCenter} zoom={mapZoom} className={styles.map}>
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          {onlineDevices.map((doc) => {
-            const device = doc.data();
-            const { lat, lng, speed, battery, timestamp } = device.lastPosition;
-            return (
-              <Marker key={doc.id} position={[lat, lng]}>
-                <Popup>
-                  <b>{device.name}</b><br />
-                  Speed: {speed || 'N/A'}<br />
-                  Battery: {battery ? `${battery}%` : 'N/A'}<br />
-                  Last Updated: {timestamp ? new Date(timestamp.seconds * 1000).toLocaleString() : 'N/A'}
-                </Popup>
-              </Marker>
-            );
-          })}
-        </MapContainer>
-      )}
+    <div className={styles.mapContainer}>
+      <MapContainer center={defaultPosition} zoom={13} className={styles.map}>
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {mockDevices.map(device => (
+          <Marker key={device.id} position={[device.lat, device.lng]}>
+            <Popup>
+              <div className={styles.popupContent}>
+                <h4>{device.name}</h4>
+                <p><strong>Status:</strong> {device.status}</p>
+                <p><strong>Speed:</strong> {device.speed} mph</p>
+                <p><strong>Last Seen:</strong> {new Date(device.lastSeen).toLocaleString()}</p>
+                <button
+                  className={styles.popupBtn}
+                  onClick={() => handleViewDevice(device.id)}
+                >
+                  View Live Device
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        <FitBounds devices={mockDevices} />
+      </MapContainer>
     </div>
   );
 };
