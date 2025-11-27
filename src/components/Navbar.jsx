@@ -27,9 +27,10 @@ const Navbar = () => {
           ) : user ? (
             <div className={styles.userMenu}>
               <img
-                src={user.photoURL || `https://avatar.vercel.sh/${user.uid}.png`}
-                alt="User Avatar"
+                src={company?.companyLogoUrl || user.photoURL || `https://avatar.vercel.sh/${user.uid}.png`}
+                alt={company?.companyLogoUrl ? "Company Logo" : "User Avatar"}
                 className={styles.userAvatar}
+                onClick={handleProfileNavigation}
               />
               <span className={styles.companyName}>
                 {company?.companyName || 'No Company'}
