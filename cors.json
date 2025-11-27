@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://9000-firebase-gps-tracker-app-1764103156852.cluster-id7eoc2eeze4orwbg4q7mtb36q.cloudworkstations.dev", "http://localhost:3000", "http://localhost:5173", "https://*.cloudworkstations.dev", "https://*.firebasestorage.googleapis.com"],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Authorization"],
+    "maxAgeSeconds": 3600
+  }
+]

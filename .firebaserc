@@ -1,5 +1,7 @@
 {
   "projects": {
     "default": "gps-tracker-platform-c9fc4"
-  }
+  },
+  "targets": {},
+  "etags": {}
 }

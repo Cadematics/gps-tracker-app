@@ -15,6 +15,7 @@ const ProfilePage = () => {
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [displayLogoUrl, setDisplayLogoUrl] = useState('');
 
   useEffect(() => {
     if (company && companyId) {
@@ -25,6 +26,7 @@ const ProfilePage = () => {
         companyPhone: company.companyPhone || '',
         companyAddress: company.companyAddress || '',
       });
+      setDisplayLogoUrl(company.companyLogoUrl || '/placeholder.png');
     }
   }, [company, companyId]);
 
@@ -35,7 +37,9 @@ const ProfilePage = () => {
 
   const handleLogoChange = (e) => {
     if (e.target.files[0]) {
-      setLogoFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setLogoFile(file);
+      setDisplayLogoUrl(URL.createObjectURL(file));
     }
   };
 
@@ -59,10 +63,11 @@ const ProfilePage = () => {
 
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
-      window.location.reload(); // Reload the page to show the new data
+      // No reload needed, state will update the UI
     } catch (err) {
       console.error(err);
       setError('Failed to update profile. Please try again.');
+      setDisplayLogoUrl(company.companyLogoUrl || '/placeholder.png'); // Revert on failure
     } finally {
       setUpdating(false);
     }
@@ -81,6 +86,7 @@ const ProfilePage = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+    setLogoFile(null);
     if (company) {
       setFormData({
         companyName: company.companyName || '',
@@ -89,6 +95,7 @@ const ProfilePage = () => {
         companyPhone: company.companyPhone || '',
         companyAddress: company.companyAddress || '',
       });
+      setDisplayLogoUrl(company.companyLogoUrl || '/placeholder.png');
     }
   };
 
@@ -109,7 +116,7 @@ const ProfilePage = () => {
       <div className={styles.formContent}>
         <div className={styles.avatarContainer}>
           <img 
-            src={company.companyLogoUrl || '/placeholder.png'} 
+            src={displayLogoUrl} 
             alt="Company Logo" 
             className={styles.avatar} 
           />
