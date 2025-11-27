@@ -7,29 +7,46 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 
 const ProfilePage = () => {
-  const { user, company, companyId, setCompany } = useAuth();
-  const [companyName, setCompanyName] = useState('');
+  const { user, company, companyId, setCompany, loading: authLoading } = useAuth();
+
+  const [isEditing, setIsEditing] = useState(false);
+  // Align formData keys with Firestore document fields
+  const [formData, setFormData] = useState({});
   const [logoFile, setLogoFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
-    if (company) {
-      setCompanyName(company.name || '');
+    if (company && companyId) {
+      // Use correct field names from the company object
+      setFormData({
+        companyName: company.companyName || '',
+        adminName: company.adminName || '',
+        adminEmail: company.adminEmail || '',
+        phone: company.phone || '',
+        address: company.address || '',
+      });
     }
-  }, [company]);
+  }, [company, companyId]);
 
-  const handleNameChange = (e) => {
-    setCompanyName(e.target.value);
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
   const handleLogoChange = (e) => {
-    setLogoFile(e.target.files[0]);
+    if (e.target.files[0]) {
+      setLogoFile(e.target.files[0]);
+    }
   };
 
   const handleProfileUpdate = async () => {
-    setLoading(true);
+    if (!companyId) {
+      setError('Cannot update profile: Company ID is missing.');
+      return;
+    }
+    setUpdating(true);
     setError(null);
     setSuccess(null);
 
@@ -39,27 +56,53 @@ const ProfilePage = () => {
         logoURL = await uploadCompanyLogo(companyId, logoFile);
       }
 
-      await updateCompany(companyId, { name: companyName, logoURL });
-      setCompany({ ...company, name: companyName, logoURL });
-      setSuccess('Profile updated successfully!');
-    } catch (err) {
-      setError('Failed to update profile.');
-    }
+      // formData now has the correct keys to send to Firestore
+      const updatedData = { ...formData, logoURL };
+      await updateCompany(companyId, updatedData);
 
-    setLoading(false);
+      // Update local state
+      setCompany({ ...company, ...updatedData });
+      setSuccess('Profile updated successfully!');
+      setIsEditing(false);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to update profile. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handlePasswordReset = async () => {
+    setError(null);
+    setSuccess(null);
     try {
       await sendPasswordResetEmail(auth, user.email);
-      setSuccess('Password reset email sent!');
+      setSuccess(`Password reset email sent to ${user.email}!`);
     } catch (err) {
       setError('Failed to send password reset email.');
     }
   };
 
-  if (!company) {
-    return <div>Loading...</div>;
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form data to original company data
+    if (company) {
+      setFormData({
+        companyName: company.companyName || '',
+        adminName: company.adminName || '',
+        adminEmail: company.adminEmail || '',
+        phone: company.phone || '',
+        address: company.address || '',
+      });
+    }
+  };
+
+  if (authLoading) {
+    return <div className={styles.centered}>Loading...</div>;
+  }
+
+  if (!companyId) {
+    return <div className={styles.centered}>Company profile not found.</div>;
   }
 
   return (
@@ -68,28 +111,48 @@ const ProfilePage = () => {
       {error && <p className={styles.error}>{error}</p>}
       {success && <p className={styles.success}>{success}</p>}
 
-      <div className={styles.avatarContainer}>
-        <img src={company.logoURL || '/placeholder.png'} alt="Company Logo" className={styles.avatar} />
-        <input type="file" onChange={handleLogoChange} />
+      <div className={styles.formContent}>
+        <div className={styles.avatarContainer}>
+          <img 
+            src={company.logoURL || '/placeholder.png'} 
+            alt="Company Logo" 
+            className={styles.avatar} 
+          />
+          {isEditing && <input type="file" onChange={handleLogoChange} accept="image/*" />}
+        </div>
+
+        <div className={styles.formFields}>
+          {Object.entries(formData).map(([key, value]) => (
+            <div className={styles.formGroup} key={key}>
+              <label htmlFor={key}>{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}</label>
+              {isEditing ? (
+                key === 'address' ? (
+                  <textarea id={key} value={value} onChange={handleInputChange} rows="3"></textarea>
+                ) : (
+                  <input type="text" id={key} value={value} onChange={handleInputChange} />
+                )
+              ) : (
+                <p className={styles.staticText}>{value || 'Not set'}</p>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className={styles.formGroup}>
-        <label htmlFor="companyName">Company Name</label>
-        <input
-          type="text"
-          id="companyName"
-          value={companyName}
-          onChange={handleNameChange}
-        />
-      </div>
-
-      <button onClick={handleProfileUpdate} disabled={loading}>
-        {loading ? 'Updating...' : 'Update Profile'}
-      </button>
+      {isEditing ? (
+        <div className={styles.buttonGroup}>
+          <button onClick={handleProfileUpdate} disabled={updating} className={styles.saveButton}>
+            {updating ? 'Saving...' : 'Save Changes'}
+          </button>
+          <button onClick={handleCancelEdit} className={styles.cancelButton}>Cancel</button>
+        </div>
+      ) : (
+        <button onClick={() => setIsEditing(true)} className={styles.editButton}>Edit Profile</button>
+      )}
 
       <div className={styles.passwordReset}>
         <h2>Reset Password</h2>
-        <p>Send a password reset link to your email.</p>
+        <p>Send a password reset link to your email address.</p>
         <button onClick={handlePasswordReset}>Send Reset Link</button>
       </div>
     </div>
