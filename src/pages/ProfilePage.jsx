@@ -7,10 +7,9 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 
 const ProfilePage = () => {
-  const { user, company, companyId, setCompany, loading: authLoading } = useAuth();
+  const { user, company, companyId, loading: authLoading } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
-  // Align formData keys with Firestore document fields
   const [formData, setFormData] = useState({});
   const [logoFile, setLogoFile] = useState(null);
   const [updating, setUpdating] = useState(false);
@@ -19,13 +18,12 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (company && companyId) {
-      // Use correct field names from the company object
       setFormData({
         companyName: company.companyName || '',
-        adminName: company.adminName || '',
-        adminEmail: company.adminEmail || '',
-        phone: company.phone || '',
-        address: company.address || '',
+        adminFullName: company.adminFullName || '',
+        email: company.email || '',
+        companyPhone: company.companyPhone || '',
+        companyAddress: company.companyAddress || '',
       });
     }
   }, [company, companyId]);
@@ -51,19 +49,17 @@ const ProfilePage = () => {
     setSuccess(null);
 
     try {
-      let logoURL = company.logoURL;
+      let logoURL = company.companyLogoUrl;
       if (logoFile) {
         logoURL = await uploadCompanyLogo(companyId, logoFile);
       }
 
-      // formData now has the correct keys to send to Firestore
-      const updatedData = { ...formData, logoURL };
+      const updatedData = { ...formData, companyLogoUrl: logoURL };
       await updateCompany(companyId, updatedData);
 
-      // Update local state
-      setCompany({ ...company, ...updatedData });
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
+      window.location.reload(); // Reload the page to show the new data
     } catch (err) {
       console.error(err);
       setError('Failed to update profile. Please try again.');
@@ -85,14 +81,13 @@ const ProfilePage = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    // Reset form data to original company data
     if (company) {
       setFormData({
         companyName: company.companyName || '',
-        adminName: company.adminName || '',
-        adminEmail: company.adminEmail || '',
-        phone: company.phone || '',
-        address: company.address || '',
+        adminFullName: company.adminFullName || '',
+        email: company.email || '',
+        companyPhone: company.companyPhone || '',
+        companyAddress: company.companyAddress || '',
       });
     }
   };
@@ -114,7 +109,7 @@ const ProfilePage = () => {
       <div className={styles.formContent}>
         <div className={styles.avatarContainer}>
           <img 
-            src={company.logoURL || '/placeholder.png'} 
+            src={company.companyLogoUrl || '/placeholder.png'} 
             alt="Company Logo" 
             className={styles.avatar} 
           />
@@ -126,7 +121,7 @@ const ProfilePage = () => {
             <div className={styles.formGroup} key={key}>
               <label htmlFor={key}>{key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}</label>
               {isEditing ? (
-                key === 'address' ? (
+                key === 'companyAddress' ? (
                   <textarea id={key} value={value} onChange={handleInputChange} rows="3"></textarea>
                 ) : (
                   <input type="text" id={key} value={value} onChange={handleInputChange} />
