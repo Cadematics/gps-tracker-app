@@ -37,6 +37,7 @@ function App() {
                 <Route index element={<DashboardPage />} />
                 <Route path="devices" element={<DevicesPage />} />
                 <Route path="live" element={<LiveMapPage />} />
+                <Route path="live/:deviceId" element={<LiveMapPage />} />
                 <Route path="history" element={<HistoryPage />} />
                 <Route path="geofencing" element={<GeofencingPage />} />
                 <Route path="reports" element={<ReportsPage />} />

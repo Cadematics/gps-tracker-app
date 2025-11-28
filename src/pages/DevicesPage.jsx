@@ -1,110 +1,92 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaSpinner, FaMapMarkedAlt, FaCarBattery, FaStreetView, FaClock } from 'react-icons/fa';
+import { FaPlus, FaSpinner, FaMapMarkedAlt, FaCar, FaBroadcastTower, FaClock, FaTachometerAlt, FaSearch } from 'react-icons/fa';
 import { serverTimestamp } from 'firebase/firestore';
 
 import { useAuth } from '../context/AuthContext';
 import { getDevicesQueryByCompany, createDevice } from '../firestore';
 import styles from './DevicesPage.module.css';
 
-// --- Helper Function for Timestamps ---
 const formatTimestamp = (timestamp) => {
-  if (!timestamp || !timestamp.toDate) {
-    return 'N/A';
-  }
+  if (!timestamp || !timestamp.toDate) return 'N/A';
   return timestamp.toDate().toLocaleString();
 };
 
 const DevicesPage = () => {
-  const { user, companyId } = useAuth();
+  const { companyId } = useAuth();
   const navigate = useNavigate();
-  
+
   const [deviceId, setDeviceId] = useState('');
   const [deviceName, setDeviceName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [feedback, setFeedback] = useState({ message: '', type: '' });
+  const [searchTerm, setSearchTerm] = useState('');
 
   const query = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
   const [devicesSnapshot, loading, error] = useCollection(query);
 
-  const handleInputChange = (e, setter) => {
-    setter(e.target.value);
-  };
-
-  const addDevice = async (e) => {
+  const handleAddDevice = async (e) => {
     e.preventDefault();
     if (!deviceId || !deviceName || !companyId) {
       setFeedback({ message: 'Device ID and Name are required.', type: 'error' });
       return;
     }
-
     setIsAdding(true);
-    setFeedback({ message: '', type: '' });
-
     try {
-      const deviceData = {
+      await createDevice(deviceId, {
         name: deviceName,
         companyId: companyId,
         isActive: false,
-        lastPosition: {
-          lat: null,
-          lng: null,
-          speed: 0,
-          ignition: false,
-          battery: null,
-          timestamp: null,
-        },
+        lastPosition: { lat: null, lng: null, speed: 0, ignition: false, battery: null, timestamp: null },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      };
-      await createDevice(deviceId, deviceData);
+      });
       setFeedback({ message: 'Device added successfully!', type: 'success' });
       setDeviceId('');
       setDeviceName('');
-    } catch (error) {
-      console.error("Error adding device:", error);
-      setFeedback({ message: `Error: ${error.message}`, type: 'error' });
+    } catch (err) {
+      setFeedback({ message: `Error: ${err.message}`, type: 'error' });
     }
     setIsAdding(false);
   };
 
-  const renderFeedback = useCallback(() => {
-    return <p className={`${styles.feedback} ${styles[feedback.type]}`}>{feedback.message}</p>;
-  }, [feedback]);
+  const filteredDevices = useMemo(() => {
+    if (!devicesSnapshot) return [];
+    return devicesSnapshot.docs.filter(doc => {
+      const device = doc.data();
+      const term = searchTerm.toLowerCase();
+      return doc.id.toLowerCase().includes(term) || device.name.toLowerCase().includes(term);
+    });
+  }, [devicesSnapshot, searchTerm]);
 
   const renderDeviceList = () => {
-    if (error) {
-      return <p className={styles.errorText}>Error loading devices: {error.message}</p>;
-    }
-
-    if (!devicesSnapshot || devicesSnapshot.empty) {
-      return (
-        <div className={styles.emptyState}>
-          <p>No devices found. Add one above to get started.</p>
-        </div>
-      );
-    }
+    if (error) return <p className={styles.errorText}>Error: {error.message}</p>;
+    if (filteredDevices.length === 0) return <p>No devices match your search or none found.</p>;
 
     return (
       <div className={styles.deviceList}>
-        {devicesSnapshot.docs.map((doc) => {
+        {filteredDevices.map((doc) => {
           const device = doc.data();
-          const { lat, lng } = device.lastPosition || {};
+          const { speed = 0 } = device.lastPosition || {};
           return (
             <div key={doc.id} className={styles.deviceItem}>
-                <strong className={styles.deviceName}>{device.name}</strong>
+              <div className={styles.deviceHeader}>
+                <strong className={styles.deviceName}><FaCar /> {device.name}</strong>
                 <span className={`${styles.status} ${device.isActive ? styles.online : styles.offline}`}>
                   {device.isActive ? 'Online' : 'Offline'}
                 </span>
-                <span className={styles.deviceDetailItem}><FaClock /> {formatTimestamp(device.updatedAt)}</span>
-                <span className={styles.deviceDetailItem}><FaStreetView /> {lat && lng ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : 'N/A'}</span>
-                <span className={styles.deviceDetailItem}><FaCarBattery /> {device.lastPosition?.battery ? `${device.lastPosition.battery}%` : 'N/A'}</span>
-                <div className={styles.actions}>
-                  <button onClick={() => navigate(`/map/${doc.id}`)} className={styles.viewLiveBtn}>
-                    <FaMapMarkedAlt /> View Live
-                  </button>
-                </div>
+              </div>
+              <div className={styles.deviceDetails}>
+                <p><strong>Device ID:</strong> {doc.id}</p>
+                <p><FaTachometerAlt /> <strong>Speed:</strong> {speed} km/h</p>
+                <p><FaClock /> <strong>Last Seen:</strong> {formatTimestamp(device.updatedAt)}</p>
+              </div>
+              <div className={styles.actions}>
+                <button onClick={() => navigate(`/dashboard/live/${doc.id}`)} className={styles.viewLiveBtn}>
+                  <FaBroadcastTower /> View Live
+                </button>
+              </div>
             </div>
           );
         })}
@@ -114,32 +96,27 @@ const DevicesPage = () => {
 
   return (
     <div className={styles.devicesPageContainer}>
-      <div className={styles.header}>
-        <h1>Device Dashboard</h1>
-      </div>
+      <h1>Device Dashboard</h1>
 
       <div className={styles.addDeviceCard}>
-        <form onSubmit={addDevice} className={styles.addDeviceForm}>
-          <input
-            type="text"
-            value={deviceId}
-            onChange={(e) => handleInputChange(e, setDeviceId)}
-            placeholder="New Device ID..."
-          />
-          <input
-            type="text"
-            value={deviceName}
-            onChange={(e) => handleInputChange(e, setDeviceName)}
-            placeholder="New Device Name..."
-          />
-          <button type="submit" disabled={isAdding}>
-            {isAdding ? <FaSpinner className={styles.spinner} /> : <FaPlus />}
-          </button>
+        <form onSubmit={handleAddDevice} className={styles.addDeviceForm}>
+          <input type="text" value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="New Device ID..." />
+          <input type="text" value={deviceName} onChange={(e) => setDeviceName(e.target.value)} placeholder="New Device Name..." />
+          <button type="submit" disabled={isAdding}>{isAdding ? <FaSpinner className={styles.spinner} /> : <FaPlus />}</button>
         </form>
-        {feedback.message && renderFeedback()}
+        {feedback.message && <p className={`${styles.feedback} ${styles[feedback.type]}`}>{feedback.message}</p>}
       </div>
 
       <div className={styles.deviceListCard}>
+        <div className={styles.searchBar}>
+          <FaSearch className={styles.searchIcon} />
+          <input
+            type="text"
+            placeholder="Search by Device ID or Name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
         {loading ? <p>Loading devices...</p> : renderDeviceList()}
       </div>
     </div>
