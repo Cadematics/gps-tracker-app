@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaSpinner, FaMapMarkedAlt, FaCar, FaBroadcastTower, FaClock, FaTachometerAlt, FaSearch } from 'react-icons/fa';
+import { FaPlus, FaSpinner, FaCar, FaBroadcastTower, FaClock, FaTachometerAlt, FaSearch, FaHistory } from 'react-icons/fa';
 import { serverTimestamp } from 'firebase/firestore';
 
 import { useAuth } from '../context/AuthContext';
@@ -60,37 +61,50 @@ const DevicesPage = () => {
     });
   }, [devicesSnapshot, searchTerm]);
 
-  const renderDeviceList = () => {
+  const renderDeviceTable = () => {
     if (error) return <p className={styles.errorText}>Error: {error.message}</p>;
     if (filteredDevices.length === 0) return <p>No devices match your search or none found.</p>;
 
     return (
-      <div className={styles.deviceList}>
-        {filteredDevices.map((doc) => {
-          const device = doc.data();
-          const { speed = 0 } = device.lastPosition || {};
-          return (
-            <div key={doc.id} className={styles.deviceItem}>
-              <div className={styles.deviceHeader}>
-                <strong className={styles.deviceName}><FaCar /> {device.name}</strong>
-                <span className={`${styles.status} ${device.isActive ? styles.online : styles.offline}`}>
-                  {device.isActive ? 'Online' : 'Offline'}
-                </span>
-              </div>
-              <div className={styles.deviceDetails}>
-                <p><strong>Device ID:</strong> {doc.id}</p>
-                <p><FaTachometerAlt /> <strong>Speed:</strong> {speed} km/h</p>
-                <p><FaClock /> <strong>Last Seen:</strong> {formatTimestamp(device.updatedAt)}</p>
-              </div>
-              <div className={styles.actions}>
-                <button onClick={() => navigate(`/dashboard/live/${doc.id}`)} className={styles.viewLiveBtn}>
-                  <FaBroadcastTower /> View Live
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <table className={styles.deviceTable}>
+        <thead>
+          <tr>
+            <th>Device Name</th>
+            <th>Device ID</th>
+            <th>Status</th>
+            <th>Speed</th>
+            <th>Last Seen</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredDevices.map((doc) => {
+            const device = doc.data();
+            const { speed = 0 } = device.lastPosition || {};
+            return (
+              <tr key={doc.id}>
+                <td><FaCar /> {device.name}</td>
+                <td>{doc.id}</td>
+                <td>
+                  <span className={`${styles.status} ${device.isActive ? styles.online : styles.offline}`}>
+                    {device.isActive ? 'Online' : 'Offline'}
+                  </span>
+                </td>
+                <td><FaTachometerAlt /> {speed} km/h</td>
+                <td><FaClock /> {formatTimestamp(device.updatedAt)}</td>
+                <td className={styles.actions}>
+                  <button onClick={() => navigate(`/dashboard/live/${doc.id}`)} className={styles.viewLiveBtn}>
+                    <FaBroadcastTower /> View Live
+                  </button>
+                  <button onClick={() => navigate(`/dashboard/device-history/${doc.id}`)} className={styles.viewHistoryBtn}>
+                    <FaHistory /> History
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     );
   };
 
@@ -117,7 +131,7 @@ const DevicesPage = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {loading ? <p>Loading devices...</p> : renderDeviceList()}
+        {loading ? <p>Loading devices...</p> : renderDeviceTable()}
       </div>
     </div>
   );

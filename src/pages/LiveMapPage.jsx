@@ -57,7 +57,7 @@ const LiveMapPage = () => {
   const renderInfoCard = () => {
     if (!device) return null;
     return (
-      <div className={styles.infoCard}>
+      <div className={styles.infoCard} data-testid="info-card">
         <h3>{device.name}</h3>
         <p><strong>Status:</strong> {device.isActive ? 'Online' : 'Offline'}</p>
         <p><strong>Speed:</strong> {device.lastPosition?.speed || 0} km/h</p>

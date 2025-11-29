@@ -1,132 +1,155 @@
+
 .devicesPageContainer {
-    padding: 2rem 4rem;
-    background-color: #f9fafb;
-    min-height: 100vh;
-    font-family: 'Inter', sans-serif;
-  }
-  
-  .header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin-bottom: 2rem;
-  }
-  
-  .addDeviceCard {
-    margin-bottom: 2rem;
-  }
-  
-  .addDeviceForm {
-    display: flex;
-    gap: 0.75rem;
-    align-items: center;
-    background: #fff;
-    padding: 0.75rem;
-    border-radius: 0.75rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  }
-  
-  .addDeviceForm input {
-    flex-grow: 1;
-    padding: 0.75rem 1rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  
-  .addDeviceForm input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-  }
-  
-  .addDeviceForm button {
-    flex-shrink: 0;
-    width: 2.5rem; /* 40px */
-    height: 2.5rem; /* 40px */
-    background-color: #2563eb;
-    color: #ffffff;
-    border: none;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s;
-  }
-  
-  .addDeviceForm button:hover { background-color: #1d4ed8; }
-  .addDeviceForm button:disabled { background-color: #9ca3af; cursor: not-allowed; }
+  padding: 2rem;
+  background-color: #f0f4f8;
+  min-height: 100vh;
+  font-family: 'Roboto', sans-serif;
+}
 
-  .feedback { margin-top: 1rem; text-align: center; }
-  .feedback.success { color: #065f46; }
-  .feedback.error { color: #991b1b; }
-  
-  .deviceListCard { background: transparent; box-shadow: none; padding: 0; }
-  .emptyState { text-align: center; padding: 2rem; color: #6b7280; }
-  
-  .deviceList { display: flex; flex-direction: column; gap: 0.75rem; }
-  
-  .deviceItem {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1.5fr 1.5fr 1fr 1fr;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    background-color: #ffffff;
-    border-radius: 0.75rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    transition: transform 0.2s, box-shadow 0.2s;
-    gap: 1rem;
-  }
+h1 {
+  font-size: 2.5rem;
+  color: #1c3d5a;
+  margin-bottom: 2rem;
+  text-align: center;
+  font-weight: 700;
+}
 
-  .deviceItem:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-  }
-  
-  .deviceName { font-size: 1.1rem; font-weight: 600; color: #111827; }
-  
-  .status {
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 0.2rem 0.6rem;
-    border-radius: 9999px;
-    width: fit-content;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  
-  .online { background-color: #dcfce7; color: #166534; }
-  .offline { background-color: #fee2e2; color: #991b1b; }
+.addDeviceCard, .deviceListCard {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
 
-  .deviceDetailItem {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #4b5563;
-    font-size: 0.9rem;
-  }
+.addDeviceForm {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
 
-  .actions {
-    justify-self: end;
-  }
-  
-  .viewLiveBtn {
-    padding: 0.5rem 1rem;
-    background-color: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: background-color 0.2s, color 0.2s;
-    white-space: nowrap;
-  }
+.addDeviceForm input[type="text"] {
+  flex-grow: 1;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
 
-  .viewLiveBtn:hover { background-color: #e5e7eb; }
-  
-  .spinner { animation: spin 1s linear infinite; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.addDeviceForm button {
+  padding: 0.8rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.feedback {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  border-radius: 8px;
+}
+
+.feedback.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.feedback.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.searchBar {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+}
+
+.searchBar input {
+  width: 100%;
+  padding: 0.8rem 1.2rem 0.8rem 40px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.deviceTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.deviceTable th, .deviceTable td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.deviceTable th {
+  color: #1c3d5a;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.deviceTable tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.status {
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.online {
+  background-color: #c8e6c9;
+  color: #256029;
+}
+
+.offline {
+  background-color: #ffcdd2;
+  color: #c63737;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.viewLiveBtn, .viewHistoryBtn {
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.viewLiveBtn {
+  background-color: #28a745;
+}
+
+.viewHistoryBtn {
+  background-color: #17a2b8;
+}

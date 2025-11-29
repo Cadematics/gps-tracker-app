@@ -1,0 +1,15 @@
+{
+  "name": "Truck 1",
+  "deviceId": "DEV001",
+  "companyId": "SkrEpR7ICfPCKEYDcIBAcvLmVUX2",
+  "isActive": true,
+  "lastPosition": {
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "speed": "45 mph",
+    "battery": 95,
+    "timestamp": "2025-11-22T14:00:00Z"
+  },
+  "createdAt": "2025-11-22T14:00:00Z",
+  "updatedAt": "2025-11-22T14:00:00Z"
+}

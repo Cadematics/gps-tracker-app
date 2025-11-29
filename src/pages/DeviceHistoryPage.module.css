@@ -1,0 +1,24 @@
+
+.container {
+  padding: 20px;
+}
+
+.filters {
+  margin-bottom: 20px;
+}
+
+.filters label {
+  margin-right: 10px;
+}
+
+.playback {
+  margin-top: 20px;
+}
+
+.playback label {
+  margin-right: 10px;
+}
+
+.playback input[type="range"] {
+  width: 300px;
+}

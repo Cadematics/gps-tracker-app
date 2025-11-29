@@ -1,3 +1,4 @@
+
 import './App.css';
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -9,6 +10,7 @@ import DashboardPage from './pages/DashboardPage';
 import PrivateRoute from './components/PrivateRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import DevicesPage from './pages/DevicesPage';
+import DeviceHistoryPage from './pages/DeviceHistoryPage';
 import LiveMapPage from './pages/LiveMapPage';
 import HistoryPage from './pages/HistoryPage';
 import GeofencingPage from './pages/GeofencingPage';
@@ -36,6 +38,7 @@ function App() {
               >
                 <Route index element={<DashboardPage />} />
                 <Route path="devices" element={<DevicesPage />} />
+                <Route path="device-history/:deviceId" element={<DeviceHistoryPage />} />
                 <Route path="live" element={<LiveMapPage />} />
                 <Route path="live/:deviceId" element={<LiveMapPage />} />
                 <Route path="history" element={<HistoryPage />} />
