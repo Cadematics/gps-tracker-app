@@ -6,6 +6,31 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css';
 import styles from './DeviceHistoryPage.module.css';
 import L from 'leaflet';
+import { useAuth } from '../context/AuthContext';
+import { useCollection } from 'react-firebase-hooks/firestore';
+import { getDevicesQueryByCompany } from '../firestore';
+
+// --- Custom Icons ---
+
+// Tiny gray dot for static history points
+const staticIcon = L.icon({
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiIHZpZXdCb3g9IjAgMCA4IDgiIGZpbGw9Im5vbmUiPgo8Y2lyY2xlIGN4PSI0IiBjeT0iNCIgcj0iNCIgZmlsbD0iIzY0NzQ4QiIvPgo8L3N2Zz4K',
+  iconSize: [8, 8],
+  iconAnchor: [4, 4],
+});
+
+
+// Larger, distinct icon for playback
+const playbackIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 
 // Workaround for a known issue with leaflet and webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -22,22 +47,16 @@ const DeviceHistoryPage = () => {
   const [endDate, setEndDate] = useState('');
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const mapRef = useRef();
-  const [devices, setDevices] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { companyId } = useAuth();
 
-  useEffect(() => {
-    const fetchDevices = async () => {
-      const { data, error } = await supabase.from('devices').select('id, name');
-      if (error) {
-        console.error('Error fetching devices:', error);
-      } else {
-        setDevices(data);
-      }
-    };
-    fetchDevices();
-  }, []);
+  const [devicesSnapshot, loadingDevices, errorDevices] = useCollection(
+    companyId ? getDevicesQueryByCompany(companyId) : null
+  );
+
+  const devices = devicesSnapshot ? devicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [];
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -46,7 +65,7 @@ const DeviceHistoryPage = () => {
         setError(null);
         try {
           const { data, error } = await supabase
-            .from('device_history')
+            .from('positions')
             .select('*')
             .eq('device_id', selectedDeviceId)
             .gte('timestamp', new Date(startDate).toISOString())
@@ -80,7 +99,15 @@ const DeviceHistoryPage = () => {
     }
   }, [positions]);
 
-  const currentPosition = positions[playbackIndex];
+  useEffect(() => {
+    if (mapRef.current && history.length > 0 && history[playbackIndex]) {
+      const current = history[playbackIndex];
+      mapRef.current.setView([current.lat, current.lng]);
+    }
+  }, [playbackIndex, history]);
+
+  const currentPosition = history.length > 0 ? [history[playbackIndex].lat, history[playbackIndex].lng] : null;
+
 
   return (
     <div className={styles.container}>
@@ -88,9 +115,11 @@ const DeviceHistoryPage = () => {
       <div className={styles.filters}>
         <label htmlFor="device-select">Select Device:</label>
         <select id="device-select" value={selectedDeviceId} onChange={handleDeviceChange}>
-          <option value="">--Select a device--</option>
-          {devices.map(device => (
-            <option key={device.id} value={device.id}>{device.name}</option>
+          <option value="">Select device…</option>
+          {devices.map(d => (
+            <option key={d.id} value={d.id}>
+              {d.name || d.id}
+            </option>
           ))}
         </select>
         <label htmlFor="start-date">Start Date:</label>
@@ -108,14 +137,14 @@ const DeviceHistoryPage = () => {
           <>
             <Polyline positions={positions} />
             {history.map((record, index) => (
-              <Marker key={index} position={[record.lat, record.lng]}>
-                <Popup>
+              <Marker key={`static-${index}`} position={[record.lat, record.lng]} icon={staticIcon}>
+                 <Popup>
                   Timestamp: {new Date(record.timestamp).toLocaleString()}
                 </Popup>
               </Marker>
             ))}
             {currentPosition && (
-              <Marker position={currentPosition}>
+              <Marker position={currentPosition} icon={playbackIcon}>
                 <Popup>
                   Current Position: <br /> {new Date(history[playbackIndex].timestamp).toLocaleString()}
                 </Popup>
@@ -134,14 +163,15 @@ const DeviceHistoryPage = () => {
             min="0"
             max={history.length - 1}
             value={playbackIndex}
-            onChange={e => setPlaybackIndex(parseInt(e.target.value))}
+            onChange={e => setPlaybackIndex(parseInt(e.target.value, 10))}
           />
           <span>{new Date(history[playbackIndex].timestamp).toLocaleString()}</span>
         </div>
       )}
 
       {loading && <div>Loading history...</div>}
-      {error && <div>Error: {error.message}</div>}
+      {(error || errorDevices) && <div>Error: {error ? error.message : errorDevices.message}</div>}
+      {loadingDevices && <div>Loading devices...</div>}
     </div>
   );
 };

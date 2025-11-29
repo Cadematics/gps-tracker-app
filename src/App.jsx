@@ -38,6 +38,7 @@ function App() {
               >
                 <Route index element={<DashboardPage />} />
                 <Route path="devices" element={<DevicesPage />} />
+                <Route path="device-history" element={<DeviceHistoryPage />} />
                 <Route path="device-history/:deviceId" element={<DeviceHistoryPage />} />
                 <Route path="live" element={<LiveMapPage />} />
                 <Route path="live/:deviceId" element={<LiveMapPage />} />
