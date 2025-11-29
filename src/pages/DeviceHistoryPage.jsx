@@ -64,12 +64,15 @@ const DeviceHistoryPage = () => {
         setLoading(true);
         setError(null);
         try {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999);
+
           const { data, error } = await supabase
             .from('positions')
             .select('*')
             .eq('device_id', selectedDeviceId)
             .gte('timestamp', new Date(startDate).toISOString())
-            .lte('timestamp', new Date(endDate).toISOString())
+            .lte('timestamp', endOfDay.toISOString())
             .order('timestamp', { ascending: true });
 
           if (error) {

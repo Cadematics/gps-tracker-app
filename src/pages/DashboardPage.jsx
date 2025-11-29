@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+
+import React, { useMemo, useCallback } from 'react';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -21,16 +22,37 @@ const DashboardPage = () => {
   const query = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
   const [devicesSnapshot, loading, error] = useCollection(query);
 
+  const getDeviceStatus = useCallback((device) => {
+    const last = device.lastPosition;
+    if (!last || !last.timestamp) return "Offline";
+    
+    const lastTime = last.timestamp.toDate ? last.timestamp.toDate() : new Date(last.timestamp);
+    const now = new Date();
+    const diffMs = now - lastTime;
+    const diffSeconds = diffMs / 1000;
+    
+    // Online if seen in the last 60 seconds
+    if (diffSeconds <= 60) return "Online";
+    return "Offline";
+  }, []);
+
   const stats = useMemo(() => {
     if (!devicesSnapshot) return { total: 0, online: 0, offline: 0 };
+    
+    let onlineCount = 0;
+    devicesSnapshot.docs.forEach(doc => {
+      if (getDeviceStatus(doc.data()) === 'Online') {
+        onlineCount++;
+      }
+    });
+
     const total = devicesSnapshot.docs.length;
-    const online = devicesSnapshot.docs.filter(doc => doc.data().isActive).length;
     return {
       total,
-      online,
-      offline: total - online
+      online: onlineCount,
+      offline: total - onlineCount
     };
-  }, [devicesSnapshot]);
+  }, [devicesSnapshot, getDeviceStatus]);
 
   const devicesWithLocation = useMemo(() => {
     if (!devicesSnapshot) return [];
@@ -61,8 +83,9 @@ const DashboardPage = () => {
             {devicesWithLocation.map(doc => {
               const device = doc.data();
               const { lat, lng } = device.lastPosition;
+              const status = getDeviceStatus(device);
               const markerProps = {};
-              if (device.isActive) {
+              if (status === 'Online') {
                 markerProps.icon = carIcon;
               }
 
@@ -70,7 +93,7 @@ const DashboardPage = () => {
                 <Marker key={doc.id} position={[lat, lng]} {...markerProps}>
                   <Popup>
                     <b>{device.name}</b><br />
-                    {device.isActive ? 'Online' : 'Offline'}
+                    {status}
                   </Popup>
                 </Marker>
               );

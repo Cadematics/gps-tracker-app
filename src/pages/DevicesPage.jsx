@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaSpinner, FaCar, FaBroadcastTower, FaClock, FaTachometerAlt, FaSearch, FaHistory } from 'react-icons/fa';
+import { FaPlus, FaSpinner, FaCar, FaBroadcastTower, FaClock, FaTachometerAlt, FaSearch, FaHistory, FaCopy } from 'react-icons/fa';
 import { serverTimestamp } from 'firebase/firestore';
 
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +27,20 @@ const DevicesPage = () => {
 
   const query = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
   const [devicesSnapshot, loading, error] = useCollection(query);
+
+  const getDeviceStatus = useCallback((device) => {
+    const last = device.lastPosition;
+    if (!last || !last.timestamp) return "Offline";
+    
+    const lastTime = last.timestamp.toDate ? last.timestamp.toDate() : new Date(last.timestamp);
+    const now = new Date();
+    const diffMs = now - lastTime;
+    const diffSeconds = diffMs / 1000;
+    
+    // Online if seen in the last 60 seconds
+    if (diffSeconds <= 60) return "Online";
+    return "Offline";
+  }, []);
 
   const handleAddDevice = async (e) => {
     e.preventDefault();
@@ -53,21 +67,29 @@ const DevicesPage = () => {
     setIsAdding(false);
   };
 
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setFeedback({ message: `Copied "${text}" to clipboard.`, type: 'success' });
+      setTimeout(() => setFeedback({ message: '', type: '' }), 3000); // Clear feedback after 3s
+    }, (err) => {
+      setFeedback({ message: 'Failed to copy!', type: 'error' });
+    });
+  };
+
   const filteredDevices = useMemo(() => {
     if (!devicesSnapshot) return [];
     return devicesSnapshot.docs.filter(doc => {
       const device = doc.data();
       const term = searchTerm.toLowerCase();
       
-      const statusMatch = statusFilter === 'All' || 
-                        (statusFilter === 'Online' && device.isActive) || 
-                        (statusFilter === 'Offline' && !device.isActive);
+      const status = getDeviceStatus(device);
+      const statusMatch = statusFilter === 'All' || status === statusFilter;
 
       const searchMatch = doc.id.toLowerCase().includes(term) || device.name.toLowerCase().includes(term);
 
       return statusMatch && searchMatch;
     });
-  }, [devicesSnapshot, searchTerm, statusFilter]);
+  }, [devicesSnapshot, searchTerm, statusFilter, getDeviceStatus]);
 
   const renderDeviceTable = () => {
     if (error) return <p className={styles.errorText}>Error: {error.message}</p>;
@@ -89,13 +111,19 @@ const DevicesPage = () => {
           {filteredDevices.map((doc) => {
             const device = doc.data();
             const { speed = 0 } = device.lastPosition || {};
+            const status = getDeviceStatus(device);
             return (
               <tr key={doc.id}>
                 <td><FaCar /> {device.name}</td>
-                <td>{doc.id}</td>
                 <td>
-                  <span className={`${styles.status} ${device.isActive ? styles.online : styles.offline}`}>
-                    {device.isActive ? 'Online' : 'Offline'}
+                  {doc.id}
+                  <button onClick={() => copyToClipboard(doc.id)} className={styles.copyBtn}>
+                    <FaCopy />
+                  </button>
+                </td>
+                <td>
+                  <span className={`${styles.status} ${status === 'Online' ? styles.online : styles.offline}`}>
+                    {status}
                   </span>
                 </td>
                 <td><FaTachometerAlt /> {speed} km/h</td>
