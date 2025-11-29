@@ -11,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
     "firebase": "^12.6.0",
     "leaflet": "^1.9.4",
     "react": "^19.2.0",

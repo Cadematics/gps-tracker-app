@@ -1,9 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { useCollection } from 'react-firebase-hooks/firestore';
-import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import styles from './DeviceHistoryPage.module.css';
@@ -24,28 +22,57 @@ const DeviceHistoryPage = () => {
   const [endDate, setEndDate] = useState('');
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const mapRef = useRef();
+  const [devices, setDevices] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const [devices] = useCollection(collection(db, 'devices'));
+  useEffect(() => {
+    const fetchDevices = async () => {
+      const { data, error } = await supabase.from('devices').select('id, name');
+      if (error) {
+        console.error('Error fetching devices:', error);
+      } else {
+        setDevices(data);
+      }
+    };
+    fetchDevices();
+  }, []);
 
-  const historyQuery = selectedDeviceId && startDate && endDate
-    ? query(
-        collection(db, 'devices', selectedDeviceId, 'history'),
-        where('timestamp', '>=', Timestamp.fromDate(new Date(startDate))),
-        where('timestamp', '<=', Timestamp.fromDate(new Date(endDate))),
-        orderBy('timestamp')
-      )
-    : null;
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (selectedDeviceId && startDate && endDate) {
+        setLoading(true);
+        setError(null);
+        try {
+          const { data, error } = await supabase
+            .from('device_history')
+            .select('*')
+            .eq('device_id', selectedDeviceId)
+            .gte('timestamp', new Date(startDate).toISOString())
+            .lte('timestamp', new Date(endDate).toISOString())
+            .order('timestamp', { ascending: true });
 
-  const [history, loading, error] = useCollection(historyQuery);
+          if (error) {
+            throw error;
+          }
+          setHistory(data);
+        } catch (error) {
+          setError(error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchHistory();
+  }, [selectedDeviceId, startDate, endDate]);
 
   const handleDeviceChange = (e) => {
     setSelectedDeviceId(e.target.value);
   };
 
-  const positions = history ? history.docs.map(doc => {
-    const { lat, lng } = doc.data();
-    return [lat, lng];
-  }) : [];
+  const positions = history ? history.map(record => [record.lat, record.lng]) : [];
 
   useEffect(() => {
     if (mapRef.current && positions.length > 0) {
@@ -62,8 +89,8 @@ const DeviceHistoryPage = () => {
         <label htmlFor="device-select">Select Device:</label>
         <select id="device-select" value={selectedDeviceId} onChange={handleDeviceChange}>
           <option value="">--Select a device--</option>
-          {devices && devices.docs.map(doc => (
-            <option key={doc.id} value={doc.id}>{doc.data().name}</option>
+          {devices.map(device => (
+            <option key={device.id} value={device.id}>{device.name}</option>
           ))}
         </select>
         <label htmlFor="start-date">Start Date:</label>
@@ -91,18 +118,18 @@ const DeviceHistoryPage = () => {
         )}
       </MapContainer>
 
-      {history && history.docs.length > 0 && (
+      {history && history.length > 0 && (
         <div className={styles.playback}>
           <label htmlFor="playback-slider">Playback:</label>
           <input
             id="playback-slider"
             type="range"
             min="0"
-            max={history.docs.length - 1}
+            max={history.length - 1}
             value={playbackIndex}
             onChange={e => setPlaybackIndex(parseInt(e.target.value))}
           />
-          <span>{new Date(history.docs[playbackIndex].data().timestamp.seconds * 1000).toLocaleString()}</span>
+          <span>{new Date(history[playbackIndex].timestamp).toLocaleString()}</span>
         </div>
       )}
 
