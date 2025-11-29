@@ -23,6 +23,7 @@ const DevicesPage = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [feedback, setFeedback] = useState({ message: '', type: '' });
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   const query = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
   const [devicesSnapshot, loading, error] = useCollection(query);
@@ -57,9 +58,16 @@ const DevicesPage = () => {
     return devicesSnapshot.docs.filter(doc => {
       const device = doc.data();
       const term = searchTerm.toLowerCase();
-      return doc.id.toLowerCase().includes(term) || device.name.toLowerCase().includes(term);
+      
+      const statusMatch = statusFilter === 'All' || 
+                        (statusFilter === 'Online' && device.isActive) || 
+                        (statusFilter === 'Offline' && !device.isActive);
+
+      const searchMatch = doc.id.toLowerCase().includes(term) || device.name.toLowerCase().includes(term);
+
+      return statusMatch && searchMatch;
     });
-  }, [devicesSnapshot, searchTerm]);
+  }, [devicesSnapshot, searchTerm, statusFilter]);
 
   const renderDeviceTable = () => {
     if (error) return <p className={styles.errorText}>Error: {error.message}</p>;
@@ -122,14 +130,25 @@ const DevicesPage = () => {
       </div>
 
       <div className={styles.deviceListCard}>
-        <div className={styles.searchBar}>
-          <FaSearch className={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder="Search by Device ID or Name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className={styles.filters}>
+          <div className={styles.searchBar}>
+            <FaSearch className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Search by Device ID or Name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className={styles.statusFilter}
+          >
+            <option value="All">All</option>
+            <option value="Online">Online</option>
+            <option value="Offline">Offline</option>
+          </select>
         </div>
         {loading ? <p>Loading devices...</p> : renderDeviceTable()}
       </div>
