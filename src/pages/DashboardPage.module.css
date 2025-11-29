@@ -1,3 +1,4 @@
+
 .dashboardContainer {
   display: flex;
   flex-direction: column;
@@ -9,27 +10,44 @@
   justify-content: space-around;
   padding: 20px;
   gap: 20px;
+  background-color: #f0f2f5; /* Light gray background for the container */
 }
 
-.statBox {
+.statCard {
   background-color: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   flex-grow: 1;
   text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid #e0e0e0;
 }
 
-.statBox h3 {
-  margin: 0 0 10px 0;
+.statCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.statCard span {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-top: 10px;
   color: #333;
 }
 
-.statBox p {
-  margin: 0;
-  font-size: 2rem;
-  font-weight: bold;
-  color: #6e8efb;
+/* Specific colors for different stats */
+.statCard:nth-child(1) span {
+  color: #6e8efb; /* Blue for total devices */
+}
+
+.statCard:nth-child(2) span {
+  color: #00c49f; /* Green for online devices */
+}
+
+.statCard:nth-child(3) span {
+  color: #ff8042; /* Orange for offline devices */
 }
 
 .mapContainer {

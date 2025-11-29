@@ -107,10 +107,17 @@ const DeviceHistoryPage = () => {
         {positions.length > 0 && (
           <>
             <Polyline positions={positions} />
+            {history.map((record, index) => (
+              <Marker key={index} position={[record.lat, record.lng]}>
+                <Popup>
+                  Timestamp: {new Date(record.timestamp).toLocaleString()}
+                </Popup>
+              </Marker>
+            ))}
             {currentPosition && (
               <Marker position={currentPosition}>
                 <Popup>
-                  A pretty CSS3 popup. <br /> Easily customizable.
+                  Current Position: <br /> {new Date(history[playbackIndex].timestamp).toLocaleString()}
                 </Popup>
               </Marker>
             )}
