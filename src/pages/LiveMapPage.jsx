@@ -8,16 +8,33 @@ import { useAuth } from '../context/AuthContext';
 import { getDevicesQueryByCompany, getDeviceById } from '../firestore';
 import styles from './LiveMapPage.module.css';
 
+// This component adjusts the map's viewport to fit all device markers.
 const FitBounds = ({ devices }) => {
   const map = useMap();
+
   React.useEffect(() => {
-    const validDevices = devices.filter(d => d.lat && d.lng);
-    if (validDevices.length > 0) {
-      map.fitBounds(validDevices.map(d => [d.lat, d.lng]));
+    // This effect runs whenever the 'devices' prop changes.
+    // 'devices' is updated in real-time by the Firestore hook.
+
+    // 1. Safely extract valid positions from the devices array.
+    //    - First, map each device to its 'lastPosition'.
+    //    - Then, filter out any 'null' or 'undefined' positions, or positions
+    //      without valid 'lat' and 'lng' properties.
+    const validPositions = devices
+      .map(device => device.lastPosition)
+      .filter(pos => pos && typeof pos.lat === 'number' && typeof pos.lng === 'number');
+
+    // 2. If there are any valid positions, calculate the bounds.
+    if (validPositions.length > 0) {
+      const bounds = validPositions.map(pos => [pos.lat, pos.lng]);
+      // 3. Tell the map to fit these bounds, adding some padding.
+      map.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [devices, map]);
-  return null;
+  }, [devices, map]); // Dependency array ensures this runs on devices/map change.
+
+  return null; // This component does not render anything itself.
 };
+
 
 const CenterMap = ({ position }) => {
   const map = useMap();
@@ -94,7 +111,14 @@ const LiveMapPage = () => {
         )}
 
         {deviceId && hasPosition && <CenterMap position={[device.lastPosition.lat, device.lastPosition.lng]} />}
-        {!deviceId && <FitBounds devices={allDevices.map(d => d.lastPosition)} />}
+        
+        {/*
+          FIX: Pass the entire 'allDevices' array to FitBounds.
+          The FitBounds component is now responsible for safely extracting the
+          positions and re-calculating the map boundaries whenever 'allDevices'
+          is updated from Firestore.
+        */}
+        {!deviceId && <FitBounds devices={allDevices} />}
 		
       </MapContainer>
       {deviceId && !hasPosition && <div className={styles.centeredMessage}>This device has not reported its position yet.</div>}
