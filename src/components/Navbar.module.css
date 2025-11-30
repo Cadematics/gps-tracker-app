@@ -1,22 +1,22 @@
 .navbar {
-  background-color: #f8f9fa;
-  color: #333;
-  padding: 1rem;
-  border-bottom: 1px solid #dee2e6;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  padding: 12px 32px;
+  border-bottom: 1px solid #E2E8F0;
 }
 
 .navContainer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
 .logo a {
-  color: #333;
+  color: #0F172A;
   text-decoration: none;
-  font-size: 1.5rem;
+  font-size: 24px;
   font-weight: bold;
 }
 
@@ -26,22 +26,28 @@
 }
 
 .navLinks a {
-  color: #333;
+  color: #475569;
   text-decoration: none;
-  margin-left: 1rem;
+  margin-left: 32px;
+  font-weight: 500;
+}
+
+.navLinks a:hover {
+  color: #2563EB;
 }
 
 .registerButton {
-  background-color: #007bff;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  border-radius: 5px;
+  background-color: #2563EB;
+  color: #FFFFFF;
+  padding: 8px 20px;
+  border-radius: 8px;
 }
 
 .userMenu {
   position: relative;
   display: flex;
   align-items: center;
+  margin-left: 32px;
 }
 
 .userAvatar {
@@ -49,25 +55,25 @@
   height: 40px;
   border-radius: 50%;
   cursor: pointer;
+  border: 2px solid #E2E8F0;
 }
 
 .companyName {
-  margin-left: 10px;
-}
-
-.userMenu:hover .dropdown {
-  display: block;
+  margin-left: 12px;
+  margin-right: 32px;
+  color: #475569;
+  font-weight: 500;
 }
 
 .dropdown {
-  display: none;
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
-  background-color: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 5px;
-  padding: 0.5rem;
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 8px;
   z-index: 1;
 }
 
@@ -75,13 +81,14 @@
   display: block;
   background-color: transparent;
   border: none;
-  color: #333;
-  padding: 0.5rem 1rem;
+  color: #0F172A;
+  padding: 8px 20px;
   width: 100%;
   text-align: left;
   cursor: pointer;
+  border-radius: 8px;
 }
 
 .dropdown button:hover {
-  background-color: #f1f3f5;
+  background-color: #F8FAFC;
 }

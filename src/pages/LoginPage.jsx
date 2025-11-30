@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styles from './LoginPage.module.css';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -41,6 +41,9 @@ const LoginPage = () => {
           required
         />
         <button type="submit">Login</button>
+        <p className={styles.registerLink}>
+          Don't have an account? <Link to="/register">Register here</Link>
+        </p>
       </form>
     </div>
   );

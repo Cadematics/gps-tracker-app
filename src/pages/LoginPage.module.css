@@ -2,35 +2,60 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: calc(100vh - 100px);
+  min-height: calc(100vh - 128px);
 }
 
 .loginForm {
   display: flex;
   flex-direction: column;
-  width: 300px;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  width: 400px;
+  padding: 32px;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .loginForm h2 {
   text-align: center;
   margin-bottom: 20px;
+  color: #0F172A;
+  font-size: 24px;
 }
 
 .loginForm input {
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  margin-bottom: 20px;
+  padding: 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.loginForm input:focus {
+  outline: none;
+  border-color: #2563EB;
 }
 
 .loginForm button {
-  padding: 10px;
-  background-color: #007bff;
-  color: white;
+  padding: 12px;
+  background-color: #2563EB;
+  color: #FFFFFF;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.registerLink {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.registerLink a {
+  color: #2563EB;
+  text-decoration: none;
+}
+
+.registerLink a:hover {
+  text-decoration: underline;
 }
