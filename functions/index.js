@@ -3,9 +3,10 @@
 // ------------------------------------------------------------
 
 const { onRequest } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { Pool } = require("pg");
 const fs = require("fs");
@@ -70,75 +71,86 @@ exports.ingestPosition = onRequest(async (req, res) => {
     }
   }
 
-  logger.info(`Ingesting ${payload.length} points for device ID '${deviceId}'`, { structuredData: true });
+  // 2. Find Firestore device (Resilient Method)
+  const devicesCollection = db.collection("devices");
+  let deviceDoc;
+
+  const deviceQuery = await devicesCollection.where("deviceId", "==", deviceId).limit(1).get();
+  
+  if (!deviceQuery.empty) {
+      deviceDoc = deviceQuery.docs[0];
+  } else {
+      logger.warn(`Could not find device by field 'deviceId'. Falling back to lookup by document ID: ${deviceId}`);
+      const docRef = devicesCollection.doc(deviceId);
+      deviceDoc = await docRef.get();
+  }
+
+  if (!deviceDoc || !deviceDoc.exists) {
+      logger.info(`Device lookup failed for deviceId='${deviceId}'`, { structuredData: true });
+      logger.error(`Device not found for ID: '${deviceId}'. Check for typos or registration issues.`);
+      return res.status(404).send({ error: "Device not registered" });
+  }
+
+  const deviceRef = deviceDoc.ref;
+  const companyId = deviceDoc.data().companyId;
+
+  if (!companyId) {
+    logger.error(`Device ${deviceDoc.id} is missing companyId.`);
+    return res.status(500).send({ error: "Configuration error: Device is missing companyId" });
+  }
 
   try {
-    // 2. Find Firestore device (Resilient Method)
-    const devicesCollection = db.collection("devices");
-    let deviceDoc;
-
-    const deviceQuery = await devicesCollection.where("deviceId", "==", deviceId).limit(1).get();
-    
-    if (!deviceQuery.empty) {
-        deviceDoc = deviceQuery.docs[0];
-    } else {
-        logger.warn(`Could not find device by field 'deviceId'. Falling back to lookup by document ID: ${deviceId}`);
-        const docRef = devicesCollection.doc(deviceId);
-        deviceDoc = await docRef.get();
-    }
-
-    if (!deviceDoc || !deviceDoc.exists) {
-        logger.info(`Device lookup failed for deviceId='${deviceId}'`, { structuredData: true });
-        logger.error(`Device not found for ID: '${deviceId}'. Check for typos or registration issues.`);
-        return res.status(404).send({ error: "Device not registered" });
-    }
-
-    const deviceRef = deviceDoc.ref;
-    const companyId = deviceDoc.data().companyId;
-
-    if (!companyId) {
-      logger.error(`Device ${deviceDoc.id} is missing companyId.`);
-      return res.status(500).send({ error: "Configuration error: Device is missing companyId" });
-    }
-
     // 3. Bulk insert all points into Supabase
-    const client = await pool.connect();
-    try {
-      const values = [];
-      const valuePlaceholders = [];
-      let paramCounter = 1;
+    if (payload.length > 0) {
+      const client = await pool.connect();
+      try {
+        const values = [];
+        const valuePlaceholders = [];
+        let paramCounter = 1;
 
-      for (const point of payload) {
-        valuePlaceholders.push(
-          `($${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++})`
-        );
-        values.push(
-          companyId,
-          deviceId,
-          point.lat,
-          point.lng,
-          point.speed ?? null,
-          point.battery ?? null,
-          point.ignition ?? false,
-          new Date(point.timestamp)
-        );
+        for (const point of payload) {
+          valuePlaceholders.push(
+            `($${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++})`
+          );
+          values.push(
+            companyId,
+            deviceId,
+            point.lat,
+            point.lng,
+            point.speed ?? null,
+            point.battery ?? null,
+            point.ignition ?? false,
+            new Date(point.timestamp)
+          );
+        }
+
+        const insertQuery = `
+            INSERT INTO positions (
+                company_id, device_id, lat, lng, speed, battery, ignition, "timestamp"
+            ) VALUES ${valuePlaceholders.join(", ")}
+        `;
+        
+        await client.query(insertQuery, values);
+      } finally {
+        client.release();
       }
-
-      const insertQuery = `
-          INSERT INTO positions (
-              company_id, device_id, lat, lng, speed, battery, ignition, "timestamp"
-          ) VALUES ${valuePlaceholders.join(", ")}
-      `;
-      
-      await client.query(insertQuery, values);
-    } finally {
-      client.release();
     }
 
     // 4. Update Firestore device with the most recent position
     const latestPoint = payload.reduce((latest, current) => 
       new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest
     );
+
+    // Compute status
+    const speedThresholdMph = 2;
+    let status = "stopped";
+    if (latestPoint.ignition === false) {
+      status = "resting";
+    } else if (latestPoint.speed >= speedThresholdMph) {
+      status = "moving";
+    }
+
+    const lastSeenAt = Timestamp.fromDate(new Date(latestPoint.timestamp));
 
     await deviceRef.update({
       lastPosition: {
@@ -147,10 +159,19 @@ exports.ingestPosition = onRequest(async (req, res) => {
         speed: latestPoint.speed || 0,
         battery: latestPoint.battery ?? null,
         ignition: latestPoint.ignition ?? false,
-        timestamp: new Date(latestPoint.timestamp),
+        timestamp: lastSeenAt,
       },
+      lastSeenAt: lastSeenAt,
       updatedAt: FieldValue.serverTimestamp(),
+      isOnline: true,
+      status: status,
     });
+
+    logger.info(
+      `Device ${deviceId}: Processed ${payload.length} points. ` +
+      `Status=${status}, ` +
+      `LatestTimestamp=${latestPoint.timestamp}`
+    );
 
     // 5. Respond with success
     return res.status(200).json({ inserted: payload.length });
@@ -163,6 +184,60 @@ exports.ingestPosition = onRequest(async (req, res) => {
     });
   }
 });
+
+// ------------------------------------------------------------
+// Scheduled Function: markOfflineDevices
+// ------------------------------------------------------------
+
+exports.markOfflineDevices = onSchedule("every 1 minutes", async (event) => {
+  const now = Timestamp.now();
+  const offlineThreshold = 30; // seconds
+
+  const onlineDevicesQuery = db.collection("devices")
+    .where("isOnline", "==", true)
+    .limit(500);
+
+  try {
+    const snapshot = await onlineDevicesQuery.get();
+    if (snapshot.empty) {
+      logger.info("No online devices found to check.");
+      return;
+    }
+
+    let devicesMarkedOffline = 0;
+    const batch = db.batch();
+
+    snapshot.forEach(doc => {
+      const device = doc.data();
+      const lastSeen = device.lastSeenAt;
+
+      if (lastSeen) {
+        const secondsSinceLastSeen = now.seconds - lastSeen.seconds;
+        if (secondsSinceLastSeen > offlineThreshold) {
+          batch.update(doc.ref, {
+            isOnline: false,
+            status: "offline",
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          devicesMarkedOffline++;
+        }
+      }
+    });
+
+    if (devicesMarkedOffline > 0) {
+      await batch.commit();
+      logger.info(`Checked ${snapshot.size} online devices. Marked ${devicesMarkedOffline} as offline.`);
+    } else {
+      logger.info(`Checked ${snapshot.size} online devices. All are still online.`);
+    }
+  } catch (error) {
+    logger.error("Error in markOfflineDevices scheduled function", {
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+});
+
 
 // ------------------------------------------------------------
 // Debug Function

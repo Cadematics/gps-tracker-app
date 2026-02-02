@@ -2,10 +2,34 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper function to check for company membership.
+    // This assumes a 'companyId' custom claim is set on the user's auth token.
+    function isCompanyMember(companyId) {
+      return request.auth.token.companyId == companyId;
+    }
     
-    // Allow read and write access only to authenticated users.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // Companies can be read by their members.
+    // Writes are restricted (e.g., only allow creation by specific backend processes).
+    match /companies/{companyId} {
+      allow read: if isCompanyMember(companyId);
+      allow create, update, delete: if false; // Secure default
+    }
+
+    // Devices can be read and created by members of the same company.
+    // Updates are handled by trusted backend services (e.g., ingestPosition function),
+    // so client-side updates are disabled to protect fields like 'status' and 'isOnline'.
+    match /devices/{deviceId} {
+      allow read: if isCompanyMember(resource.data.companyId);
+      allow create: if isCompanyMember(request.resource.data.companyId);
+      allow update, delete: if false;
+    }
+
+    // Alerts can be read by members of the same company.
+    // These are created by backend services, so client-side writes are disabled.
+    match /alerts/{alertId} {
+        allow read: if isCompanyMember(resource.data.companyId);
+        allow create, update, delete: if false;
     }
   }
 }
