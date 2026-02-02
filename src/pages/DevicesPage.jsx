@@ -3,10 +3,10 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaSpinner, FaCar, FaBroadcastTower, FaClock, FaTachometerAlt, FaSearch, FaHistory, FaCopy } from 'react-icons/fa';
-import { serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 
 import { useAuth } from '../context/AuthContext';
-import { getDevicesQueryByCompany, createDevice } from '../firestore';
+import { db, getDevicesQueryByCompany, createDevice } from '../firestore';
 import styles from './DevicesPage.module.css';
 
 const formatTimestamp = (timestamp) => {
@@ -25,8 +25,8 @@ const DevicesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
-  const query = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
-  const [devicesSnapshot, loading, error] = useCollection(query);
+  const devicesQuery = useMemo(() => companyId ? getDevicesQueryByCompany(companyId) : null, [companyId]);
+  const [devicesSnapshot, loading, error] = useCollection(devicesQuery);
 
   const getDeviceStatus = useCallback((device) => {
     const last = device.lastPosition;
@@ -37,40 +37,64 @@ const DevicesPage = () => {
     const diffMs = now - lastTime;
     const diffSeconds = diffMs / 1000;
     
-    // Online if seen in the last 60 seconds
     if (diffSeconds <= 60) return "Online";
     return "Offline";
   }, []);
 
   const handleAddDevice = async (e) => {
     e.preventDefault();
-    if (!deviceId || !deviceName || !companyId) {
+    const trimmedDeviceId = deviceId.trim();
+    const trimmedDeviceName = deviceName.trim();
+
+    if (!trimmedDeviceId || !trimmedDeviceName || !companyId) {
       setFeedback({ message: 'Device ID and Name are required.', type: 'error' });
       return;
     }
+    
     setIsAdding(true);
+    setFeedback({ message: '', type: '' }); // Clear previous feedback
+
     try {
-      await createDevice(deviceId, {
-        name: deviceName,
+      // Validation: Check if a device with this ID already exists for the company
+      const q = query(collection(db, 'devices'), where('deviceId', '==', trimmedDeviceId), where('companyId', '==', companyId));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        setFeedback({ message: 'Error: Device ID already exists in your company.', type: 'error' });
+        setIsAdding(false);
+        return;
+      }
+
+      // Create Device: If unique, create the new device document
+      const newDeviceData = {
+        deviceId: trimmedDeviceId,
+        name: trimmedDeviceName,
         companyId: companyId,
-        isActive: false,
-        lastPosition: { lat: null, lng: null, speed: 0, ignition: false, battery: null, timestamp: null },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+        isActive: false,
+        lastPosition: { lat: null, lng: null, speed: 0, ignition: false, battery: null, timestamp: null },
+        config: { logIntervalSec: 1, batchIntervalSec: 30 }, // Added config object
+      };
+
+      // Use the user-provided deviceId as the document's unique ID
+      await createDevice(trimmedDeviceId, newDeviceData);
+
       setFeedback({ message: 'Device added successfully!', type: 'success' });
       setDeviceId('');
       setDeviceName('');
     } catch (err) {
-      setFeedback({ message: `Error: ${err.message}`, type: 'error' });
+      console.error("Error adding device: ", err);
+      setFeedback({ message: 'An unexpected error occurred. Please try again.', type: 'error' });
+    } finally {
+      setIsAdding(false);
     }
-    setIsAdding(false);
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       setFeedback({ message: `Copied "${text}" to clipboard.`, type: 'success' });
-      setTimeout(() => setFeedback({ message: '', type: '' }), 3000); // Clear feedback after 3s
+      setTimeout(() => setFeedback({ message: '', type: '' }), 3000);
     }, (err) => {
       setFeedback({ message: 'Failed to copy!', type: 'error' });
     });
@@ -85,7 +109,7 @@ const DevicesPage = () => {
       const status = getDeviceStatus(device);
       const statusMatch = statusFilter === 'All' || status === statusFilter;
 
-      const searchMatch = doc.id.toLowerCase().includes(term) || device.name.toLowerCase().includes(term);
+      const searchMatch = (device.deviceId && device.deviceId.toLowerCase().includes(term)) || device.name.toLowerCase().includes(term);
 
       return statusMatch && searchMatch;
     });
@@ -116,8 +140,8 @@ const DevicesPage = () => {
               <tr key={doc.id}>
                 <td><FaCar /> {device.name}</td>
                 <td>
-                  {doc.id}
-                  <button onClick={() => copyToClipboard(doc.id)} className={styles.copyBtn}>
+                  {device.deviceId}
+                  <button onClick={() => copyToClipboard(device.deviceId)} className={styles.copyBtn}>
                     <FaCopy />
                   </button>
                 </td>
@@ -150,8 +174,8 @@ const DevicesPage = () => {
 
       <div className={styles.addDeviceCard}>
         <form onSubmit={handleAddDevice} className={styles.addDeviceForm}>
-          <input type="text" value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="New Device ID..." />
-          <input type="text" value={deviceName} onChange={(e) => setDeviceName(e.target.value)} placeholder="New Device Name..." />
+          <input type="text" value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="New Device ID..." required />
+          <input type="text" value={deviceName} onChange={(e) => setDeviceName(e.target.value)} placeholder="New Device Name..." required />
           <button type="submit" disabled={isAdding}>{isAdding ? <FaSpinner className={styles.spinner} /> : <FaPlus />}</button>
         </form>
         {feedback.message && <p className={`${styles.feedback} ${styles[feedback.type]}`}>{feedback.message}</p>}

@@ -4,7 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import { createCompany } from '../firestore';
-import { serverTimestamp } from 'firebase/firestore';
 
 const RegisterPage = () => {
   const [companyName, setCompanyName] = useState('');
@@ -26,13 +25,13 @@ const RegisterPage = () => {
     try {
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
 
+      // The createCompany function now handles createdAt and updatedAt automatically.
       await createCompany(user.uid, {
         companyName: companyName,
         ownerUserId: user.uid,
         adminFullName: fullName,
         email: email,
         phoneNumber: phoneNumber,
-        createdAt: serverTimestamp(),
       });
 
       navigate('/dashboard/live');

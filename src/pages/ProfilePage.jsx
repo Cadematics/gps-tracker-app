@@ -3,7 +3,7 @@ import styles from './ProfilePage.module.css';
 import { useAuth } from '../context/AuthContext';
 import { updateCompany } from '../firestore';
 import { uploadCompanyLogo } from '../storage';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { sendPasswordResetEmail, verifyBeforeUpdateEmail } from 'firebase/auth'; // Updated import
 import { auth } from '../firebase';
 
 const ProfilePage = () => {
@@ -26,6 +26,7 @@ const ProfilePage = () => {
         companyPhone: company.companyPhone || '',
         companyAddress: company.companyAddress || '',
       });
+      // Use placeholder if companyLogoUrl is null or empty
       setDisplayLogoUrl(company.companyLogoUrl || '/placeholder.png');
     }
   }, [company, companyId]);
@@ -44,8 +45,8 @@ const ProfilePage = () => {
   };
 
   const handleProfileUpdate = async () => {
-    if (!companyId) {
-      setError('Cannot update profile: Company ID is missing.');
+    if (!companyId || !user) {
+      setError('Cannot update profile: Missing user or company information.');
       return;
     }
     setUpdating(true);
@@ -53,6 +54,13 @@ const ProfilePage = () => {
     setSuccess(null);
 
     try {
+      let emailChangeMessage = '';
+      // If email is being changed, send verification email
+      if (formData.email !== user.email) {
+        await verifyBeforeUpdateEmail(user, formData.email);
+        emailChangeMessage = 'A verification link has been sent to your new email. Please verify to update your login email.';
+      }
+
       let logoURL = company.companyLogoUrl;
       if (logoFile) {
         logoURL = await uploadCompanyLogo(companyId, logoFile);
@@ -61,12 +69,16 @@ const ProfilePage = () => {
       const updatedData = { ...formData, companyLogoUrl: logoURL };
       await updateCompany(companyId, updatedData);
 
-      setSuccess('Profile updated successfully!');
+      setSuccess(`Profile updated successfully! ${emailChangeMessage}`);
       setIsEditing(false);
-      // No reload needed, state will update the UI
     } catch (err) {
       console.error(err);
-      setError('Failed to update profile. Please try again.');
+      // Provide more specific feedback
+      if (err.code === 'auth/requires-recent-login') {
+        setError('This is a sensitive operation. Please log out and log back in before changing your email.');
+      } else {
+        setError('Failed to update profile. Please try again.');
+      }
       setDisplayLogoUrl(company.companyLogoUrl || '/placeholder.png'); // Revert on failure
     } finally {
       setUpdating(false);

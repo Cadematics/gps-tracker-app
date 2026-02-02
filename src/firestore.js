@@ -7,6 +7,7 @@ import {
   query,
   where,
   getDocs,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -44,12 +45,22 @@ export const getDeviceById = (deviceId) => {
 
 export const createCompany = async (companyId, data) => {
   const companyRef = doc(db, 'companies', companyId);
-  await setDoc(companyRef, data);
+  const now = serverTimestamp();
+  // When creating, set both createdAt and updatedAt
+  await setDoc(companyRef, {
+    ...data,
+    createdAt: now,
+    updatedAt: now,
+  });
 };
 
 export const updateCompany = async (companyId, data) => {
     const companyRef = doc(db, 'companies', companyId);
-    await updateDoc(companyRef, data);
+    // When updating, only set updatedAt
+    await updateDoc(companyRef, {
+        ...data,
+        updatedAt: serverTimestamp(),
+    });
 }
 
 export const createDevice = async (deviceId, data) => {

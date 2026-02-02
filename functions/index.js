@@ -5,7 +5,7 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { Pool } = require("pg");
 const fs = require("fs");
@@ -36,89 +36,180 @@ const pool = new Pool({
 
 exports.ingestPosition = onRequest(async (req, res) => {
   if (req.method !== "POST") {
-    return res.status(405).send("Method Not Allowed");
+    return res.status(405).send({ error: "Method Not Allowed" });
   }
 
-  const { deviceId, lat, lng, speed, battery, ignition, timestamp } = req.body;
+  // Use 'let' to allow modification
+  let { deviceId, points, ...singlePoint } = req.body;
 
-  if (!deviceId || !lat || !lng || !timestamp) {
-    return res.status(400).send("Missing required fields");
+  // 1. Validation & Sanitization
+  if (!deviceId || typeof deviceId !== 'string') {
+    return res.status(400).send({ error: "Missing or invalid required field: deviceId" });
+  }
+  
+  // Trim whitespace from deviceId to prevent errors
+  deviceId = deviceId.trim();
+
+  const isBatch = points && Array.isArray(points);
+  let payload = [];
+
+  if (isBatch) {
+    if (points.length === 0) {
+      return res.status(400).send({ error: "Batch payload cannot have an empty 'points' array." });
+    }
+    payload = points;
+  } else if (singlePoint.lat && singlePoint.lng && singlePoint.timestamp) {
+    payload = [singlePoint];
+  } else {
+    return res.status(400).send({ error: "Payload must be a single point with lat/lng/timestamp or a batch with a 'points' array." });
   }
 
-  logger.info(`Received data: ${JSON.stringify(req.body)}`, {
-    structuredData: true,
-  });
+  for (const point of payload) {
+    if (point.lat == null || point.lng == null || !point.timestamp) {
+      return res.status(400).send({ error: "All points must include lat, lng, and timestamp." });
+    }
+  }
+
+  logger.info(`Ingesting ${payload.length} points for device ID '${deviceId}'`, { structuredData: true });
 
   try {
-    // ------------------------------------------------------------
-    // 1. Fetch device from Firestore
-    // ------------------------------------------------------------
-    const deviceRef = db.collection("devices").doc(deviceId);
-    const deviceSnap = await deviceRef.get();
+    // 2. Find Firestore device (Resilient Method)
+    const devicesCollection = db.collection("devices");
+    let deviceDoc;
 
-    if (!deviceSnap.exists) {
-      logger.error(`Device not found in Firestore: ${deviceId}`);
-      return res.status(404).send("Device not registered");
+    const deviceQuery = await devicesCollection.where("deviceId", "==", deviceId).limit(1).get();
+    
+    if (!deviceQuery.empty) {
+        deviceDoc = deviceQuery.docs[0];
+    } else {
+        logger.warn(`Could not find device by field 'deviceId'. Falling back to lookup by document ID: ${deviceId}`);
+        const docRef = devicesCollection.doc(deviceId);
+        deviceDoc = await docRef.get();
     }
 
-    const deviceData = deviceSnap.data();
-    const companyId = deviceData.companyId;
+    if (!deviceDoc || !deviceDoc.exists) {
+        logger.info(`Device lookup failed for deviceId='${deviceId}'`, { structuredData: true });
+        logger.error(`Device not found for ID: '${deviceId}'. Check for typos or registration issues.`);
+        return res.status(404).send({ error: "Device not registered" });
+    }
+
+    const deviceRef = deviceDoc.ref;
+    const companyId = deviceDoc.data().companyId;
 
     if (!companyId) {
-      logger.error(`Device ${deviceId} has no companyId`);
-      return res.status(500).send("Device missing companyId");
+      logger.error(`Device ${deviceDoc.id} is missing companyId.`);
+      return res.status(500).send({ error: "Configuration error: Device is missing companyId" });
     }
 
-    // ------------------------------------------------------------
-    // 2. Update Firestore lastPosition
-    // ------------------------------------------------------------
-    const newPosition = {
-      lat,
-      lng,
-      speed: speed || 0,
-      battery: battery ?? null,
-      ignition: ignition ?? null,
-      timestamp: new Date(timestamp),
-    };
+    // 3. Bulk insert all points into Supabase
+    const client = await pool.connect();
+    try {
+      const values = [];
+      const valuePlaceholders = [];
+      let paramCounter = 1;
+
+      for (const point of payload) {
+        valuePlaceholders.push(
+          `($${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++}, $${paramCounter++})`
+        );
+        values.push(
+          companyId,
+          deviceId,
+          point.lat,
+          point.lng,
+          point.speed ?? null,
+          point.battery ?? null,
+          point.ignition ?? false,
+          new Date(point.timestamp)
+        );
+      }
+
+      const insertQuery = `
+          INSERT INTO positions (
+              company_id, device_id, lat, lng, speed, battery, ignition, "timestamp"
+          ) VALUES ${valuePlaceholders.join(", ")}
+      `;
+      
+      await client.query(insertQuery, values);
+    } finally {
+      client.release();
+    }
+
+    // 4. Update Firestore device with the most recent position
+    const latestPoint = payload.reduce((latest, current) => 
+      new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest
+    );
 
     await deviceRef.update({
-      lastPosition: newPosition,
-      updatedAt: new Date(),
+      lastPosition: {
+        lat: latestPoint.lat,
+        lng: latestPoint.lng,
+        speed: latestPoint.speed || 0,
+        battery: latestPoint.battery ?? null,
+        ignition: latestPoint.ignition ?? false,
+        timestamp: new Date(latestPoint.timestamp),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // ------------------------------------------------------------
-    // 3. Insert into Supabase PostgreSQL
-    // ------------------------------------------------------------
-    const client = await pool.connect();
-    const insertQuery = `
-      INSERT INTO positions (
-        company_id, device_id, lat, lng, speed, battery, ignition, timestamp
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `;
+    // 5. Respond with success
+    return res.status(200).json({ inserted: payload.length });
 
-    const insertValues = [
-      companyId,
-      deviceId,
-      lat,
-      lng,
-      speed ?? null,
-      battery ?? null,
-      ignition ?? null,
-      new Date(timestamp),
-    ];
-
-    await client.query(insertQuery, insertValues);
-    client.release();
-
-    // ------------------------------------------------------------
-    // OK
-    // ------------------------------------------------------------
-    return res.status(200).send("Data ingested successfully");
   } catch (err) {
-    logger.error("Internal ingestion error", err);
+    logger.error("Internal ingestion error", { error: err.message, stack: err.stack });
     return res.status(500).json({
-      error: "Internal ingestion error",
+      error: "Internal database or processing error",
       details: err.message,
     });
+  }
+});
+
+// ------------------------------------------------------------
+// Debug Function
+// ------------------------------------------------------------
+
+exports.debugDevice = onRequest(async (req, res) => {
+  if (req.method !== "GET") {
+      return res.status(405).send({ error: "Method Not Allowed" });
+  }
+
+  const receivedDeviceId = req.query.deviceId;
+
+  if (!receivedDeviceId) {
+      return res.status(400).send({ error: "Missing required query parameter: deviceId" });
+  }
+
+  try {
+      const devicesCollection = db.collection("devices");
+      const snapshot = await devicesCollection.where("deviceId", "==", receivedDeviceId).get();
+
+      const docIds = snapshot.docs.map(doc => doc.id);
+      let firstDocData = null;
+
+      if (!snapshot.empty) {
+          const firstDoc = snapshot.docs[0].data();
+          // Sanitize the output to only include safe fields
+          firstDocData = {
+              deviceId: firstDoc.deviceId,
+              companyId: firstDoc.companyId,
+              name: firstDoc.name,
+              createdAt: firstDoc.createdAt,
+              updatedAt: firstDoc.updatedAt
+          };
+      }
+
+      return res.status(200).json({
+          receivedDeviceId: receivedDeviceId,
+          matches: snapshot.size,
+          docIds: docIds,
+          firstDoc: firstDocData
+      });
+
+  } catch (err) {
+      logger.error("Error in debugDevice function", { error: err.message, stack: err.stack });
+      return res.status(500).json({
+          error: "Internal server error during debug",
+          details: err.message
+      });
   }
 });
